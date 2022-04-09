@@ -1,0 +1,16 @@
+[package]
+name = "rtsp-to-kvs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1"
+clap = { version = "3.1.8", features = ["derive"] }
+env_logger = "0.9"
+glib = "0.15.10"
+gst = { package = "gstreamer", version = "0.18.7" }
+gst_base = { package = "gstreamer-base", version = "0.18.0" }
+gst_rtsp = { package = "gstreamer-rtsp", version = "0.18.0" }
+log = "0.4.16"
