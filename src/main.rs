@@ -1,3 +1,4 @@
+use anyhow::Context;
 use clap::{Args, Parser, Subcommand};
 use gst::prelude::*;
 
@@ -66,15 +67,20 @@ struct KvsConfig {
         aws_region: Option<String>,
 }
 
+fn create_element(factoryname: &str, name: &str) -> anyhow::Result<gst::Element> {
+    gst::ElementFactory::make(factoryname, Some(name))
+        .with_context(|| format!("Failed to create {}", factoryname))
+}
+
 fn setup_playback(
     pipeline: &gst::Pipeline,
     rtsp_source: &gst::Element,
     rtph264depay: &gst::Element,
 ) -> anyhow::Result<()> {
-    let h264_parse = gst::ElementFactory::make("h264parse", Some("h264parse"))?;
-    let avdec_h264 = gst::ElementFactory::make("avdec_h264", Some("avdec_h264"))?;
-    let convert = gst::ElementFactory::make("videoconvert", Some("videoconvert"))?;
-    let sink = gst::ElementFactory::make("autovideosink", Some("videosink"))?;
+    let h264_parse = create_element("h264parse", "h264parse")?;
+    let avdec_h264 = create_element("avdec_h264", "avdec_h264")?;
+    let convert = create_element("videoconvert", "videoconvert")?;
+    let sink = create_element("autovideosink", "videosink")?;
 
     pipeline.add_many(&[
         rtsp_source,
@@ -102,8 +108,8 @@ fn setup_kvssink(
     kvs_config: &KvsConfig,
 ) -> anyhow::Result<()> {
 
-    let h264_parse = gst::ElementFactory::make("h264parse", Some("h264parse"))?;
-    let kvssink = gst::ElementFactory::make("kvssink", Some("kvssink"))?;
+    let h264_parse = create_element("h264parse", "h264parse")?;
+    let kvssink = create_element("kvssink", "kvssink")?;
     kvssink.try_set_property("access-key", kvs_config.aws_access_key_id.as_str())?;
     kvssink.try_set_property("secret-key", kvs_config.aws_secret_key.as_str())?;
     kvssink.try_set_property("stream-name", kvs_config.stream_name.as_str())?;
@@ -127,7 +133,7 @@ fn setup_kvssink(
 }
 
 fn rtspsrc(rtsp_config: &RtspConfig) -> anyhow::Result<gst::Element> {
-    let rtsp_source = gst::ElementFactory::make("rtspsrc", Some("source"))?;
+    let rtsp_source = create_element("rtspsrc", "source")?;
     rtsp_source.try_set_property("location", rtsp_config.url.as_str())?;
     if let Some(ref user_id) = rtsp_config.user_id {
         rtsp_source.try_set_property("user-id", user_id)?;
@@ -147,7 +153,7 @@ fn main() -> anyhow::Result<()> {
 
     let pipeline = gst::Pipeline::new(Some("rtsp-to-kvs-pipeline"));
     let rtsp_source = rtspsrc(args.rtsp_config())?;
-    let rtph264depay = gst::ElementFactory::make("rtph264depay", Some("rtph264depay"))?;
+    let rtph264depay = create_element("rtph264depay", "rtph264depay")?;
     match args.command {
         Commands::PlayBack { .. } => setup_playback(&pipeline, &rtsp_source, &rtph264depay)?,
         Commands::Kvs { kvs_config, .. } => setup_kvssink(&pipeline, &rtsp_source, &rtph264depay, &kvs_config)?,
