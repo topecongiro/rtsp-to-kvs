@@ -1,4 +1,6 @@
-use anyhow::Context;
+use std::env;
+
+use anyhow::{anyhow, Context};
 use clap::{Args, Parser, Subcommand};
 use gst::prelude::*;
 
@@ -40,7 +42,7 @@ enum Commands {
 struct RtspConfig {
     /// The RTSP url.
     #[clap(long)]
-    url: String,
+    url: Option<String>,
 
     /// The RTSP user id for authentication.
     #[clap(long)]
@@ -55,13 +57,13 @@ struct RtspConfig {
 struct KvsConfig {
         /// AWS access key.
         #[clap(long)]
-        aws_access_key_id: String,
+        aws_access_key_id: Option<String>,
         /// AWS secret key.
         #[clap(long)]
-        aws_secret_key: String,
+        aws_secret_key: Option<String>,
         /// The stream name of Kinesis Video Stream
         #[clap(long)]
-        stream_name: String,
+        stream_name: Option<String>,
         /// AWS region.
         #[clap(long)]
         aws_region: Option<String>,
@@ -107,12 +109,17 @@ fn setup_kvssink(
     rtph264depay: &gst::Element,
     kvs_config: &KvsConfig,
 ) -> anyhow::Result<()> {
-
     let h264_parse = create_element("h264parse", "h264parse")?;
     let kvssink = create_element("kvssink", "kvssink")?;
-    kvssink.try_set_property("access-key", kvs_config.aws_access_key_id.as_str())?;
-    kvssink.try_set_property("secret-key", kvs_config.aws_secret_key.as_str())?;
-    kvssink.try_set_property("stream-name", kvs_config.stream_name.as_str())?;
+    if let Ok(access_key) = kvs_config.aws_access_key_id.as_ref().ok_or_else(|| env::var("AWS_ACCESS_KEY")) {
+        kvssink.try_set_property("access-key", access_key)?;
+    }
+    if let Ok(aws_secret_key) = kvs_config.aws_secret_key.as_ref().ok_or_else(|| env::var("AWS_SECRET_ACCESS_KEY")) {
+        kvssink.try_set_property("secret-key", aws_secret_key)?;
+    }
+    let stream_name = kvs_config.stream_name.as_ref().ok_or_else(|| env::var("KVS_STREAM_NAME"))
+        .map_err(|_| anyhow!("KVS stream name must be specified via command line argument or environment variable"))?;
+    kvssink.try_set_property("stream-name", stream_name)?;
     if let Some(ref aws_region) = kvs_config.aws_region {
         kvssink.try_set_property("aws-region", aws_region)?;
     }
@@ -134,11 +141,13 @@ fn setup_kvssink(
 
 fn rtspsrc(rtsp_config: &RtspConfig) -> anyhow::Result<gst::Element> {
     let rtsp_source = create_element("rtspsrc", "source")?;
-    rtsp_source.try_set_property("location", rtsp_config.url.as_str())?;
-    if let Some(ref user_id) = rtsp_config.user_id {
+    if let Ok(url) = rtsp_config.url.as_ref().ok_or_else(|| env::var("RTSP_URL")) {
+        rtsp_source.try_set_property("url", url)?;
+    }
+    if let Ok(user_id) = rtsp_config.user_id.as_ref().ok_or_else(|| env::var("RTSP_USER_ID")) {
         rtsp_source.try_set_property("user-id", user_id)?;
     }
-    if let Some(ref password) = rtsp_config.password {
+    if let Ok(password) = rtsp_config.password.as_ref().ok_or_else(|| env::var("RSTP_USER_PW")) {
         rtsp_source.try_set_property("user-pw", password)?;
     }
     Ok(rtsp_source)
