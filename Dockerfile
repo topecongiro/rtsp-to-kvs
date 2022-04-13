@@ -1,16 +1,20 @@
-FROM archlinux:base-devel as builder-base
+FROM archlinux:base-devel-20220410.0.52530 as gstreamer-base
 
-RUN pacman -Syu --noconfirm
 RUN pacman -Syu --noconfirm \
-    base-devel \
-    cmake \
-    git \
+    log4cplus \
+    openssl \
     gstreamer \
     gst-libav \
     gst-plugins-bad \
     gst-plugins-base \
-    gst-plugins-good \
-    log4cplus \
+    gst-plugins-good
+
+FROM gstreamer-base as builder-base
+
+RUN pacman -Syu --noconfirm \
+    base-devel \
+    cmake \
+    git \
     rust
 
 FROM builder-base as kvssink-builder
@@ -33,17 +37,7 @@ COPY src ./src
 RUN touch -a -m ./src/main.rs
 RUN cargo build --release
 
-FROM archlinux:base-devel
-
-RUN pacman -Syu --noconfirm
-RUN pacman -Syu --noconfirm \
-    log4cplus \
-    openssl \
-    gstreamer \
-    gst-plugins-base \
-    gst-plugins-good \
-    gst-plugins-bad \
-    gst-libav
+FROM gstreamer-base
 
 COPY --from=app-builder /app/target/release/rtsp-to-kvs /app/rtsp-to-kvs
 COPY --from=kvssink-builder /kvssink/build /kvssink/build
