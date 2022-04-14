@@ -111,14 +111,14 @@ fn setup_kvssink(
 ) -> anyhow::Result<()> {
     let h264_parse = create_element("h264parse", "h264parse")?;
     let kvssink = create_element("kvssink", "kvssink")?;
-    if let Ok(access_key) = kvs_config.aws_access_key_id.as_ref().ok_or_else(|| env::var("AWS_ACCESS_KEY")) {
+    if let Some(access_key) = kvs_config.aws_access_key_id.as_ref().or_else(|| env::var("AWS_ACCESS_KEY").ok()) {
         kvssink.try_set_property("access-key", access_key)?;
     }
-    if let Ok(aws_secret_key) = kvs_config.aws_secret_key.as_ref().ok_or_else(|| env::var("AWS_SECRET_ACCESS_KEY")) {
+    if let Some(aws_secret_key) = kvs_config.aws_secret_key.as_ref().or_else(|| env::var("AWS_SECRET_ACCESS_KEY").ok()) {
         kvssink.try_set_property("secret-key", aws_secret_key)?;
     }
-    let stream_name = kvs_config.stream_name.as_ref().ok_or_else(|| env::var("KVS_STREAM_NAME"))
-        .map_err(|_| anyhow!("KVS stream name must be specified via command line argument or environment variable"))?;
+    let stream_name = kvs_config.stream_name.as_ref().or_else(|| env::var("KVS_STREAM_NAME").ok())
+        .ok_or_else(|| anyhow!("KVS stream name must be specified via command line argument or environment variable"))?;
     kvssink.try_set_property("stream-name", stream_name)?;
     if let Some(ref aws_region) = kvs_config.aws_region {
         kvssink.try_set_property("aws-region", aws_region)?;
@@ -141,13 +141,13 @@ fn setup_kvssink(
 
 fn rtspsrc(rtsp_config: &RtspConfig) -> anyhow::Result<gst::Element> {
     let rtsp_source = create_element("rtspsrc", "source")?;
-    if let Ok(url) = rtsp_config.url.as_ref().ok_or_else(|| env::var("RTSP_URL")) {
+    if let Some(url) = rtsp_config.url.as_ref().or_else(|| env::var("RTSP_URL").ok()) {
         rtsp_source.try_set_property("url", url)?;
     }
-    if let Ok(user_id) = rtsp_config.user_id.as_ref().ok_or_else(|| env::var("RTSP_USER_ID")) {
+    if let Some(user_id) = rtsp_config.user_id.as_ref().or_else(|| env::var("RTSP_USER_ID").ok()) {
         rtsp_source.try_set_property("user-id", user_id)?;
     }
-    if let Ok(password) = rtsp_config.password.as_ref().ok_or_else(|| env::var("RSTP_USER_PW")) {
+    if let Some(password) = rtsp_config.password.as_ref().or_else(|| env::var("RSTP_USER_PW").ok()) {
         rtsp_source.try_set_property("user-pw", password)?;
     }
     Ok(rtsp_source)
