@@ -44,4 +44,4 @@ COPY --from=kvssink-builder /kvssink/build /kvssink/build
 
 ENV GST_PLUGIN_PATH=/kvssink/build
 
-ENTRYPOINT [ "/app/rtsp-to-kvs" ]
+ENTRYPOINT [ "/app/rtsp-to-kvs", "kvs" ]
